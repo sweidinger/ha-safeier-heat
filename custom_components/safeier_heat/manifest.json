@@ -2,15 +2,26 @@
   "domain": "safeier_heat",
   "name": "SAFEIER / QZLGD Heated Socks",
   "bluetooth": [
-    {"local_name": "vm-*", "connectable": true}
+    {
+      "service_uuid": "0000af30-0000-1000-8000-00805f9b34fb",
+      "connectable": true
+    },
+    {
+      "local_name": "vm-*",
+      "connectable": true
+    }
   ],
-  "codeowners": ["@sweidinger"],
+  "codeowners": [
+    "@sweidinger"
+  ],
   "config_flow": true,
-  "dependencies": ["bluetooth_adapters"],
+  "dependencies": [
+    "bluetooth_adapters"
+  ],
   "documentation": "https://github.com/sweidinger/ha-safeier-heat",
   "integration_type": "device",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/sweidinger/ha-safeier-heat/issues",
   "requirements": [],
-  "version": "0.1.0"
+  "version": "0.1.1"
 }

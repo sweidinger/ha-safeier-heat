@@ -16,8 +16,13 @@ from homeassistant.const import CONF_ADDRESS, CONF_NAME
 from .const import DOMAIN
 
 
+SERVICE_UUID = "0000af30-0000-1000-8000-00805f9b34fb"
+
+
 def _is_sock(info: BluetoothServiceInfoBleak) -> bool:
-    return (info.name or "").lower().startswith("vm-")
+    # The 'vm-…' name is only in the scan response, so passive scanners never
+    # see it. The advertised AF30 service is what the vendor app filters on.
+    return SERVICE_UUID in info.service_uuids or (info.name or "").lower().startswith("vm-")
 
 
 class SafeierConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -69,7 +74,7 @@ class SafeierConfigFlow(ConfigFlow, domain=DOMAIN):
         current = self._async_current_ids()
         for info in async_discovered_service_info(self.hass, connectable=True):
             if _is_sock(info) and info.address not in current:
-                self._found[info.address] = f"{info.name} ({info.address})"
+                self._found[info.address] = info.address if info.name == info.address else f"{info.name} ({info.address})"
         if not self._found:
             return self.async_abort(reason="no_devices_found")
 
