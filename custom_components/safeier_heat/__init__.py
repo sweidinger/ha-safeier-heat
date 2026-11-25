@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections import deque
 import logging
 
 from homeassistant.components import bluetooth
@@ -12,7 +13,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import DOMAIN, SCAN_INTERVAL
+from homeassistant.util import dt as dt_util
+
+from .const import DOMAIN, SCAN_INTERVAL, VOLTAGE_WINDOW
 from .protocol import SockStatus, async_read_status, build_command
 
 _LOGGER = logging.getLogger(__name__)
@@ -35,6 +38,21 @@ class SafeierCoordinator(DataUpdateCoordinator[SockStatus]):
         )
         self.address: str = entry.data[CONF_ADDRESS]
         self._lock = asyncio.Lock()
+        self._samples: deque[tuple] = deque()
+
+    def _filter_voltage(self, status: SockStatus) -> SockStatus:
+        """Report the lowest reading of the window as cell voltage."""
+        now = dt_util.utcnow()
+        if self._samples and self._samples[-1][2] != status.heating:
+            # Load changed: the cell recovers or sags, start over.
+            self._samples.clear()
+        if status.raw_voltage_mv:
+            self._samples.append((now, status.raw_voltage_mv, status.heating))
+        while self._samples and now - self._samples[0][0] > VOLTAGE_WINDOW:
+            self._samples.popleft()
+        if self._samples:
+            status.voltage_mv = min(s[1] for s in self._samples)
+        return status
 
     def _ble_device(self):
         ble_device = bluetooth.async_ble_device_from_address(
@@ -49,7 +67,7 @@ class SafeierCoordinator(DataUpdateCoordinator[SockStatus]):
         async with self._lock:
             ble_device = self._ble_device()
             try:
-                return await async_read_status(ble_device)
+                return self._filter_voltage(await async_read_status(ble_device))
             except Exception as err:  # noqa: BLE001
                 raise UpdateFailed(f"Abfrage fehlgeschlagen: {err}") from err
 
@@ -77,7 +95,7 @@ class SafeierCoordinator(DataUpdateCoordinator[SockStatus]):
                 status = await async_read_status(ble_device, command)
             except Exception as err:  # noqa: BLE001
                 raise HomeAssistantError(f"Befehl fehlgeschlagen: {err}") from err
-        self.async_set_updated_data(status)
+        self.async_set_updated_data(self._filter_voltage(status))
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: SafeierConfigEntry) -> bool:

@@ -10,6 +10,8 @@ from bleak_retry_connector import BleakClientWithServiceCache, establish_connect
 
 from .const import (
     NOTIFY_CHAR,
+    QUERY_REPEATS,
+    QUERY_SPACING,
     RESPONSE_TIMEOUT,
     SETPOINT_MAX,
     SETPOINT_MIN,
@@ -30,6 +32,7 @@ class SockStatus:
     timer_min: int
     flash_heating: bool
     raw: str
+    raw_voltage_mv: int = 0
 
     @property
     def battery_percent(self) -> float:
@@ -81,15 +84,17 @@ def build_command(setpoint: int, heating: bool, timer_min: int, flash: bool) -> 
 async def async_read_status(ble_device: BLEDevice, command: bytes | None = None) -> SockStatus:
     """Connect, optionally send a command, read status, disconnect.
 
-    Disconnecting after every exchange keeps the phone app usable.
+    The status is queried a few times and the lowest voltage is kept; the
+    newest frame gives on/off and setpoint. Disconnecting after every
+    exchange keeps the phone app usable.
     """
-    loop = asyncio.get_running_loop()
-    future: asyncio.Future[bytes] | None = None
+    frames: list[bytes] = []
+    accept = False
 
     def _on_notify(_sender, data: bytearray) -> None:
-        # Only accept frames that arrive after our status query.
-        if future is not None and not future.done() and len(data) >= 11 and data[0] == 0x55:
-            future.set_result(bytes(data))
+        # Status replies start with 55 00; command acks with 55 01.
+        if accept and len(data) >= 11 and data[0] == 0x55 and data[1] == 0x00:
+            frames.append(bytes(data))
 
     client = await establish_connection(
         BleakClientWithServiceCache,
@@ -102,9 +107,22 @@ async def async_read_status(ble_device: BLEDevice, command: bytes | None = None)
         if command is not None:
             await client.write_gatt_char(WRITE_CHAR, command, response=False)
             await asyncio.sleep(0.6)
-        future = loop.create_future()
-        await client.write_gatt_char(WRITE_CHAR, STATUS_QUERY, response=False)
-        data = await asyncio.wait_for(future, RESPONSE_TIMEOUT)
+        accept = True
+        for _ in range(QUERY_REPEATS):
+            await client.write_gatt_char(WRITE_CHAR, STATUS_QUERY, response=False)
+            await asyncio.sleep(QUERY_SPACING)
+        if not frames:
+            deadline = asyncio.get_running_loop().time() + RESPONSE_TIMEOUT
+            while not frames and asyncio.get_running_loop().time() < deadline:
+                await asyncio.sleep(0.2)
+        if not frames:
+            raise TimeoutError("keine Antwort vom Akku")
     finally:
         await client.disconnect()
-    return parse_status(data)
+
+    status = parse_status(frames[-1])
+    voltages = [v for v in (parse_status(f).voltage_mv for f in frames) if v]
+    if voltages:
+        status.voltage_mv = min(voltages)
+    status.raw_voltage_mv = status.voltage_mv
+    return status

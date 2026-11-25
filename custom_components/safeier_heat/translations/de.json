@@ -31,6 +31,9 @@
       },
       "raw": {
         "name": "Rohdaten"
+      },
+      "raw_voltage": {
+        "name": "Zellspannung (roh)"
       }
     },
     "switch": {

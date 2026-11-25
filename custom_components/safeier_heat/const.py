@@ -13,6 +13,13 @@ STATUS_QUERY = bytes.fromhex("550100aa")
 SCAN_INTERVAL = timedelta(seconds=60)
 RESPONSE_TIMEOUT = 8.0
 
+QUERY_REPEATS = 2
+QUERY_SPACING = 0.7
+
+# While heating, the battery's voltage readings scatter upwards (heater current
+# disturbs its ADC). The lower envelope over a window is the real cell voltage.
+VOLTAGE_WINDOW = timedelta(minutes=10)
+
 # Piecewise-linear voltage -> percent curve, taken from the SAFEIER app.
 VOLTAGE_CURVE_MV = [
     (3279, 0.0),

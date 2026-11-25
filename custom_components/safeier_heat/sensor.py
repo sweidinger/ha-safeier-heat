@@ -50,6 +50,17 @@ SENSORS: tuple[SafeierSensorDescription, ...] = (
         value_fn=lambda s: s.timer_min,
     ),
     SafeierSensorDescription(
+        key="raw_voltage",
+        translation_key="raw_voltage",
+        device_class=SensorDeviceClass.VOLTAGE,
+        native_unit_of_measurement=UnitOfElectricPotential.MILLIVOLT,
+        suggested_unit_of_measurement=UnitOfElectricPotential.VOLT,
+        suggested_display_precision=2,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda s: s.raw_voltage_mv or None,
+    ),
+    SafeierSensorDescription(
         key="raw",
         translation_key="raw",
         entity_category=EntityCategory.DIAGNOSTIC,

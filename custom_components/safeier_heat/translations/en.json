@@ -31,6 +31,9 @@
       },
       "raw": {
         "name": "Raw frame"
+      },
+      "raw_voltage": {
+        "name": "Cell voltage (raw)"
       }
     },
     "switch": {
