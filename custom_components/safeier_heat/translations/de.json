@@ -1,0 +1,42 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "confirm": {
+        "description": "Heizsocken-Akku {address} einrichten?",
+        "data": {
+          "name": "Name"
+        }
+      },
+      "user": {
+        "data": {
+          "address": "Akku",
+          "name": "Name"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Bereits eingerichtet",
+      "no_devices_found": "Kein Akku gefunden – Socke einstecken und Akku einschalten.",
+      "not_supported": "Gerät wird nicht unterstützt"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "voltage": {
+        "name": "Zellspannung"
+      },
+      "setpoint": {
+        "name": "Solltemperatur"
+      },
+      "raw": {
+        "name": "Rohdaten"
+      }
+    },
+    "binary_sensor": {
+      "heating": {
+        "name": "Heizung"
+      }
+    }
+  }
+}
