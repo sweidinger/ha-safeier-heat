@@ -21,3 +21,8 @@ VOLTAGE_CURVE_MV = [
     (3904, 75.0),
     (4085, 100.0),
 ]
+
+# Temperature range the app allows for 'vm' batteries.
+SETPOINT_MIN = 45
+SETPOINT_MAX = 75
+TIMER_OPTIONS = [0, 20, 40, 60, 90]  # minutes, 0 = no timer

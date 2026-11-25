@@ -11,7 +11,7 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfElectricPotential, UnitOfTemperature
+from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfElectricPotential, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -44,11 +44,10 @@ SENSORS: tuple[SafeierSensorDescription, ...] = (
         value_fn=lambda s: s.voltage_mv or None,
     ),
     SafeierSensorDescription(
-        key="setpoint",
-        translation_key="setpoint",
-        device_class=SensorDeviceClass.TEMPERATURE,
-        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        value_fn=lambda s: s.setpoint,
+        key="timer_remaining",
+        translation_key="timer_remaining",
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+        value_fn=lambda s: s.timer_min,
     ),
     SafeierSensorDescription(
         key="raw",

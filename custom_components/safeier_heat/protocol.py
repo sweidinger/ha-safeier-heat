@@ -8,7 +8,15 @@ from dataclasses import dataclass
 from bleak.backends.device import BLEDevice
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 
-from .const import NOTIFY_CHAR, RESPONSE_TIMEOUT, STATUS_QUERY, VOLTAGE_CURVE_MV, WRITE_CHAR
+from .const import (
+    NOTIFY_CHAR,
+    RESPONSE_TIMEOUT,
+    SETPOINT_MAX,
+    SETPOINT_MIN,
+    STATUS_QUERY,
+    VOLTAGE_CURVE_MV,
+    WRITE_CHAR,
+)
 
 
 @dataclass
@@ -61,13 +69,26 @@ def parse_status(data: bytes) -> SockStatus:
     )
 
 
-async def async_read_status(ble_device: BLEDevice) -> SockStatus:
-    """Connect, ask for status once, disconnect (keeps the phone app usable)."""
+def build_command(setpoint: int, heating: bool, timer_min: int, flash: bool) -> bytes:
+    """'55 01 05 TT PP SS DD FF 00 AA' – same frame the SAFEIER app sends."""
+    setpoint = max(SETPOINT_MIN, min(SETPOINT_MAX, int(setpoint)))
+    return bytes(
+        [0x55, 0x01, 0x05, 0x00, setpoint + 5, 0x01 if heating else 0x00,
+         max(0, min(255, int(timer_min))), 0x01 if flash else 0x00, 0x00, 0xAA]
+    )
+
+
+async def async_read_status(ble_device: BLEDevice, command: bytes | None = None) -> SockStatus:
+    """Connect, optionally send a command, read status, disconnect.
+
+    Disconnecting after every exchange keeps the phone app usable.
+    """
     loop = asyncio.get_running_loop()
-    future: asyncio.Future[bytes] = loop.create_future()
+    future: asyncio.Future[bytes] | None = None
 
     def _on_notify(_sender, data: bytearray) -> None:
-        if not future.done() and len(data) >= 11 and data[0] == 0x55:
+        # Only accept frames that arrive after our status query.
+        if future is not None and not future.done() and len(data) >= 11 and data[0] == 0x55:
             future.set_result(bytes(data))
 
     client = await establish_connection(
@@ -78,6 +99,10 @@ async def async_read_status(ble_device: BLEDevice) -> SockStatus:
     )
     try:
         await client.start_notify(NOTIFY_CHAR, _on_notify)
+        if command is not None:
+            await client.write_gatt_char(WRITE_CHAR, command, response=False)
+            await asyncio.sleep(0.6)
+        future = loop.create_future()
         await client.write_gatt_char(WRITE_CHAR, STATUS_QUERY, response=False)
         data = await asyncio.wait_for(future, RESPONSE_TIMEOUT)
     finally:
